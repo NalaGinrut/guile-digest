@@ -1,0 +1,9 @@
+guile-digest
+============
+
+Digest algorithms support for GNU Guile
+
+* NOTE:
+This project will be a patch to upstream GNU Guile if it's done.
+I do it independently before it's finished, for easily test/develop.
+I wish it'll be accepted by upstream, or it could be an independent project, anyway either would be good.

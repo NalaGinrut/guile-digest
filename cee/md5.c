@@ -36,7 +36,7 @@ typedef struct
   u32  nblocks;
   byte buf[64];
   int  count;
-} MD5_CONTEXT;
+} MD5_CTXT;
 
 #ifdef WORDS_BIGENDIAN
 # define SWAP(n)                                                        \
@@ -48,7 +48,7 @@ typedef struct
 static void
 md5_init(void *context)
 {
-  MD5_CONTEXT *ctx = context;
+  MD5_CTXT *ctx = context;
 
   ctx->A = 0x67452301;
   ctx->B = 0xefcdab89;
@@ -71,7 +71,7 @@ md5_init(void *context)
  * transform n*64 bytes
  */
 static void
-transform(MD5_CONTEXT *ctx, const unsigned char *data)
+transform(MD5_CTXT *ctx, const unsigned char *data)
 {
   u32 correct_words[16];
   register u32 A = ctx->A;
@@ -192,15 +192,15 @@ transform(MD5_CONTEXT *ctx, const unsigned char *data)
  * in the message whose digest is being computed.
  */
 static void
-md5_write(void *context, const void *inbuf_arg , size_t inlen)
+md5_write(void *context ,const void *inbuf_arg ,size_t inlen)
 {
   const unsigned char *inbuf = inbuf_arg;
-  MD5_CONTEXT *hd = context;
+  MD5_CTXT *hd = context;
   
   if(hd->count == 64)  /* flush the buffer */
     {
       transform(hd, hd->buf);
-      _gcry_burn_stack (80+6*sizeof(void*));
+      __burn_stack(80+6*sizeof(void*));
       hd->count = 0;
       hd->nblocks++;
     }
@@ -215,7 +215,7 @@ md5_write(void *context, const void *inbuf_arg , size_t inlen)
       if(!inlen)
         return;
     }
-  _gcry_burn_stack (80+6*sizeof(void*));
+  __burn_stack(80+6*sizeof(void*));
 
   while(inlen >= 64) 
     {
@@ -241,7 +241,7 @@ md5_write(void *context, const void *inbuf_arg , size_t inlen)
 static void
 md5_final(void *context)
 {
-  MD5_CONTEXT *hd = context;
+  MD5_CTXT *hd = context;
   u32 t, msb, lsb;
   byte *p;
   
@@ -272,20 +272,20 @@ md5_final(void *context)
       hd->buf[hd->count++] = 0x80; /* pad character */
       while(hd->count < 64)
         hd->buf[hd->count++] = 0;
-      md5_write(hd, NULL, 0);  /* flush */;
-      memset(hd->buf, 0, 56); /* fill next block with zeroes */
+      md5_write(hd ,NULL ,0);  /* flush */;
+      memset(hd->buf ,0 ,56); /* fill next block with zeroes */
     }
   /* append the 64 bit count */
-  hd->buf[56] = lsb	   ;
+  hd->buf[56] = lsb;
   hd->buf[57] = lsb >>  8;
   hd->buf[58] = lsb >> 16;
   hd->buf[59] = lsb >> 24;
-  hd->buf[60] = msb	   ;
+  hd->buf[60] = msb;
   hd->buf[61] = msb >>  8;
   hd->buf[62] = msb >> 16;
   hd->buf[63] = msb >> 24;
-  transform(hd, hd->buf);
-  _gcry_burn_stack (80+6*sizeof(void*));
+  transform(hd ,hd->buf);
+  __burn_stack(80+6*sizeof(void*));
 
   p = hd->buf;
 #ifdef WORDS_BIGENDIAN
@@ -302,10 +302,31 @@ md5_final(void *context)
 
 }
 
-static byte *
-md5_read(void *context)
+#define MD5_HEX "%02x"
+#define MD5_RAW "%x" // FIXME: output in raw mode
+SCM scm_digest_md5_digest(SCM str ,SCM mode)
 {
-  MD5_CONTEXT *hd = (MD5_CONTEXT *) context;
-  return hd->buf;
+  // TODO: prelude
+  SCM_VALIDATE_STRING(1 ,str);
+  char *buf = scm_to_locale_string(str);
+  int m;
+  SCM ret;
+  MD5_CTX state;
+  byte digest[16];
+  char hex_output[16*2 + 1];
+
+  m = SCM_UNBNDP(mode) ? MD5_HEX : MD5_RAW;
+  
+  md5_init(&state);
+  md5_write(&state ,(const char *)buf ,strlen(buf));
+  md5_final(digest, &state);
+
+  sprintf(hex_output ,m ,digest[di]);
+  ret = scm_from_locale_string(hex_output);
+
+  free(buf);
+  return ret;
 }
+#undef MD5_HEX
+#undef MD5_RAW
 

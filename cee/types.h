@@ -121,4 +121,32 @@ typedef union {
     double g;
 } PROPERLY_ALIGNED_TYPE;
 
+
+/* When we finished some functions, the secret key is still in memory - on the stack.
+ * __burn_stack will zero that out in case some crack way to catch secret key.
+ */
+static inline void __burn_stack(int bytes)
+{	
+  char buf[64];
+
+  do {
+    bytes -= sizeof buf;
+    wipememory(buf ,sizeof buf);
+  } while(bytes > 0);
+
+}	
+
+/* To avoid that a compiler optimizes certain memset calls away, these
+   macros may be used instead. */
+static inline void  wipe_memory_inner(_ptr ,_set ,_len)
+{
+  volatile char *_vptr = (volatile char *)(_ptr);	
+  size_t _vlen = _len;
+  
+  while(_vlen) { *_vptr=(_set); _vptr++; _vlen--; }		
+}
+
+#define wipe_memory(_ptr ,_len) wipe_memory_inner(_ptr ,0 ,_len)
+
+
 #endif /*__GUILE_DIGEST_TYPES_H*/
